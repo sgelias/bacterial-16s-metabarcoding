@@ -1,0 +1,10 @@
+version: "3"
+
+services:
+  machine:
+    container_name: "neoproepecta_challenge_bioinfo_skills"
+    build: . 
+    volumes:
+      - './scripts:/home/scripts:delegated'
+      - '../data:/home/data:delegated'
+      - '../bio-softwares:/home/bio-softwares'

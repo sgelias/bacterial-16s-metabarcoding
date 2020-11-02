@@ -1,0 +1,166 @@
+# Bacterial 16S metabarcoding.
+#
+# @sgelias
+#
+
+
+# Import the configuration file.
+configfile: "config.yaml"
+
+
+SUFFIX = ["fastqc.zip", "fastqc.html"]
+FILES = config["samples"]
+
+
+# Turn ouput files available for all rules ...
+rule all:
+    input:
+        expand(
+            "{directory}/{file}.fastq", directory=config["fastq_raw"], file=FILES,
+        ),
+        expand(
+            "{directory}/{file}_FILTERED.fastq",
+            directory=config["fastq_trimmed"],
+            file=FILES,
+        ),
+        expand(
+            "{directory}/{file}_{suffix}",
+            directory=config["fastq_raw_quality"],
+            file=FILES,
+            suffix=SUFFIX,
+        ),
+        expand(
+            "{directory}/{file}_FILTERED_{suffix}",
+            directory=config["fastq_trimmed_quality"],
+            file=FILES,
+            suffix=SUFFIX,
+        ),
+
+
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+"""
+
+
+rule trim_se:
+    message:
+        """--- Trimming raw data with Trimmomatic."""
+    input:
+        expand(
+            "{directory}/{file}.fastq", directory=config["fastq_raw"], file=FILES,
+        ),
+    output:
+        expand(
+            "{directory}/{file}_FILTERED.fastq",
+            directory=config["fastq_trimmed"],
+            file=FILES,
+        ),
+    log:
+        config["fastq_trimmed_log"],
+    params:
+        adapters=config["adapters"],
+        trimmomatic=config["trimmomatic"],
+        workdir=config["fastq_trimmed"],
+    threads: 2
+    run:
+        for file in input:
+
+            filename = file.split("/")[-1].split(".")[0]
+
+            target_output = [
+                item for item in output if item.split("/")[-1].startswith(filename)
+            ]
+
+            shell(
+                """
+        mkdir -p {params.workdir}
+        java -jar {params.trimmomatic} \
+            SE -phred33 \
+            -threads {threads} \
+            {file} \
+            {target_output} \
+            ILLUMINACLIP:"{params.adapters}:2:30:10" \
+            LEADING:20 \
+            TRAILING:35 \
+            SLIDINGWINDOW:50:20 \
+            MINLEN:150 \
+            &>> {log}
+        """
+            )
+
+
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+"""
+
+
+rule generate_quality_scores_raw:
+    message:
+        """--- Quality check of raw data with Fastqc."""
+    input:
+        expand(
+            "{directory}/{file}.fastq", directory=config["fastq_raw"], file=FILES,
+        ),
+    output:
+        expand(
+            "{directory}/{file}_{suffix}",
+            directory=config["fastq_raw_quality"],
+            file=FILES,
+            suffix=SUFFIX,
+        ),
+    log:
+        config["fastq_raw_quality_log"],
+    params:
+        output_dir=config["fastq_raw_quality"],
+    threads: 2
+    shell:
+        """
+        mkdir -p {params.output_dir}
+        fastqc -q \
+            --outdir {params.output_dir} \
+            --threads {threads} \
+            {input} \
+            &>> {log}
+        """
+
+
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+"""
+
+
+rule generate_quality_scores_trimmed:
+    message:
+        """--- Quality check of trimmed data with Fastqc."""
+    input:
+        trimmed_files=rules.trim_se.output,
+    output:
+        expand(
+            "{directory}/{file}_FILTERED_{suffix}",
+            directory=config["fastq_trimmed_quality"],
+            file=FILES,
+            suffix=SUFFIX,
+        ),
+    log:
+        config["fastq_trimmed_quality_log"],
+    params:
+        output_dir=config["fastq_trimmed_quality"],
+    threads: 4
+    shell:
+        """
+        mkdir -p {params.output_dir}
+        fastqc -q \
+            --outdir {params.output_dir} \
+            --threads {threads} \
+            {input} \
+            &>> {log}
+        """
