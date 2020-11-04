@@ -1,7 +1,9 @@
-# Bacterial 16S metabarcoding.
+# Bacterial 16S metabarcoding pipeline
 #
 # @sgelias
 #
+# Description: Generate quality reporter and perform taxonomic annotation for 
+# bacterial 16S metabarcoding sequencing product. See README.md file for details.
 
 
 # Import the configuration file.
@@ -15,81 +17,69 @@ FILES = config["samples"]
 # Turn ouput files available for all rules ...
 rule all:
     input:
+        # SERVES:
+        # generate_quality_scores_raw, trim_se
         expand(
-            "{directory}/{file}.fastq", directory=config["fastq_raw"], file=FILES,
+            "{directory}/{file}.fastq", 
+            directory=config["fastq_raw"], 
+            file=FILES,
         ),
+        
+        # SERVES:
+        # trim_se, taxonomic_annotation
         expand(
             "{directory}/{file}_FILTERED.fastq",
             directory=config["fastq_trimmed"],
             file=FILES,
         ),
+        
+        # SERVES:
+        # generate_quality_scores_raw
         expand(
             "{directory}/{file}_{suffix}",
             directory=config["fastq_raw_quality"],
             file=FILES,
             suffix=SUFFIX,
         ),
+        
+        # SERVES:
+        # generate_quality_scores_trimmed
         expand(
             "{directory}/{file}_FILTERED_{suffix}",
             directory=config["fastq_trimmed_quality"],
             file=FILES,
             suffix=SUFFIX,
         ),
-
-
-"""
-Step: Trim ends of fastq files.
-Software: Trimmomatic
-Version: 0.39
-Description: This step remove low quality ...
-"""
-
-
-rule trim_se:
-    message:
-        """--- Trimming raw data with Trimmomatic."""
-    input:
+        
+        # SERVES:
+        # build_reference_database
         expand(
-            "{directory}/{file}.fastq", directory=config["fastq_raw"], file=FILES,
+            "{output_dir}/{output_prefix}.{blast_database_formats}",
+            output_dir=config['reference_blast'],
+            output_prefix="bacterial_16S",
+            blast_database_formats=["nhr", "nin", "nsq"]
         ),
-    output:
+        
+        # SERVES:
+        # build_reference_database
+        config['reference'],
+
+        # SERVES:
+        # fastq_to_fasta
         expand(
-            "{directory}/{file}_FILTERED.fastq",
-            directory=config["fastq_trimmed"],
+            "{directory}/{file}_FILTERED.fasta",
+            directory=config["fasta_trimmed"],
             file=FILES,
         ),
-    log:
-        config["fastq_trimmed_log"],
-    params:
-        adapters=config["adapters"],
-        trimmomatic=config["trimmomatic"],
-        workdir=config["fastq_trimmed"],
-    threads: 2
-    run:
-        for file in input:
+        
+        # SERVES:
+        # taxonomic_annotation
+        expand(
+            "{directory}/{file}_FILTERED_BAC16S.fasta",
+            directory=config['tax_annotation'],
+            file=FILES,
+        ),
 
-            filename = file.split("/")[-1].split(".")[0]
-
-            target_output = [
-                item for item in output if item.split("/")[-1].startswith(filename)
-            ]
-
-            shell(
-                """
-        mkdir -p {params.workdir}
-        java -jar {params.trimmomatic} \
-            SE -phred33 \
-            -threads {threads} \
-            {file} \
-            {target_output} \
-            ILLUMINACLIP:"{params.adapters}:2:30:10" \
-            LEADING:20 \
-            TRAILING:35 \
-            SLIDINGWINDOW:50:20 \
-            MINLEN:150 \
-            &>> {log}
-        """
-            )
 
 
 """
@@ -97,6 +87,8 @@ Step: Trim ends of fastq files.
 Software: Trimmomatic
 Version: 0.39
 Description: This step remove low quality ...
+
+Important parameters:
 """
 
 
@@ -105,7 +97,9 @@ rule generate_quality_scores_raw:
         """--- Quality check of raw data with Fastqc."""
     input:
         expand(
-            "{directory}/{file}.fastq", directory=config["fastq_raw"], file=FILES,
+            "{directory}/{file}.fastq", 
+            directory=config["fastq_raw"], 
+            file=FILES,
         ),
     output:
         expand(
@@ -135,6 +129,68 @@ Step: Trim ends of fastq files.
 Software: Trimmomatic
 Version: 0.39
 Description: This step remove low quality ...
+
+Important parameters:
+"""
+
+
+rule trim_se:
+    message:
+        """--- Trimming raw data with Trimmomatic."""
+    input:
+        expand(
+            "{directory}/{file}.fastq", 
+            directory=config["fastq_raw"], 
+            file=FILES,
+        ),
+    output:
+        expand(
+            "{directory}/{file}_FILTERED.fastq",
+            directory=config["fastq_trimmed"],
+            file=FILES,
+        ),
+    log:
+        config["fastq_trimmed_log"],
+    params:
+        adapters=config["adapters"],
+        trimmomatic=config["trimmomatic"],
+        workdir=config["fastq_trimmed"],
+    threads: 2
+    run:
+        for file in input:
+
+            filename = file.split("/")[-1].split(".")[0]
+
+            target_output = [
+                item for item in output if item \
+                    .split("/")[-1] \
+                    .startswith(filename)
+            ]
+
+            shell(
+                """
+                mkdir -p {params.workdir}
+                java -jar {params.trimmomatic} \
+                    SE -phred33 \
+                    -threads {threads} \
+                    {file} \
+                    {target_output} \
+                    ILLUMINACLIP:"{params.adapters}:2:30:10" \
+                    HEADCROP:20 \
+                    SLIDINGWINDOW:5:20 \
+                    MINLEN:180 \
+                    &>> {log}
+                """
+            )
+
+
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+
+Important parameters:
 """
 
 
@@ -164,3 +220,128 @@ rule generate_quality_scores_trimmed:
             {input} \
             &>> {log}
         """
+
+
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+
+Important parameters:
+"""
+
+
+rule build_reference_database:
+    message:
+        """--- Building reference database."""
+    input:
+        config['reference'],
+    output:
+        expand(
+            "{output_dir}/{output_prefix}.{blast_database_formats}",
+            output_dir=config['reference_blast'],
+            output_prefix="bacterial_16S",
+            blast_database_formats=["nhr", "nin", "nsq"]
+        ),
+    params:
+        dbtype = "nucl",
+        output_dir=config['reference_blast'],
+        output_prefix = "bacterial_16S",
+    shell:
+        """
+        mkdir -p {params.output_dir}
+        makeblastdb \
+			-in {input} \
+			-dbtype {params.dbtype} \
+			-out {params.output_dir}/{params.output_prefix}
+        """
+
+
+rule fastq_to_fasta:
+    message:
+        """--- Convert FASTQ to FASTA fromat."""
+    input:
+        expand(
+            "{directory}/{file}_FILTERED.fastq",
+            directory=config["fastq_trimmed"],
+            file=FILES,
+        ),
+    output:
+        expand(
+            "{directory}/{file}_FILTERED.fasta",
+            directory=config["fasta_trimmed"],
+            file=FILES,
+        ),
+    run:
+        for file in input:
+
+            filename = file.split("/")[-1].split(".")[0]
+
+            target_output = [
+                item for item in output if item \
+                    .split("/")[-1] \
+                    .startswith(filename)
+            ][0]
+            
+            shell(
+                """
+                sed -n '1~4s/^@/>/p;2~4p' \
+                    {file} > {target_output}
+                """
+            )
+
+
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+
+Important parameters:
+"""
+
+
+rule taxonomic_annotation:
+    message:
+        """--- Taxonomic annotation using blastn."""
+    input:
+        trimmed_files = rules.fastq_to_fasta.output,
+        reference_database = rules.build_reference_database.output,
+    output:
+        expand(
+            "{directory}/{file}_FILTERED_BAC16S.csv",
+            directory=config['tax_annotation'],
+            file=FILES,
+        ),
+    params:
+        evalue = 10e-5,
+        outfmt = "10",
+        db = rules.build_reference_database.params.output_prefix,
+        db_dir = config['reference_blast'],
+        output_dir=config['tax_annotation'],
+    threads: 4
+    run:
+        for file in input.trimmed_files:
+
+            filename = file.split("/")[-1].split(".")[0]
+
+            target_output = [
+                item for item in output if item \
+                    .split("/")[-1] \
+                    .startswith(filename)
+            ][0]
+
+            shell(
+                """
+                mkdir -p {params.output_dir}
+                cd {params.output_dir}
+                blastn \
+                    -query {file} \
+                    -evalue {params.evalue} \
+                    -outfmt {params.outfmt} \
+                    -num_threads {threads} \
+                    -db {params.db_dir}/{params.db} \
+                    -out {target_output}
+                """
+            )

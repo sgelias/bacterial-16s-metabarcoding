@@ -30,9 +30,8 @@ RUN apt update -y \
         bowtie2 \
         samtools
 
+# Install main Python bioinformatic dependencies
 RUN pip3 install --upgrade \
-    cutadapt \
-    biopython \
     ncbi-genome-download \
     ncbi-acc-download
 

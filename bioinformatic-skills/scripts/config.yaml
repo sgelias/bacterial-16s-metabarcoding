@@ -1,6 +1,3 @@
-# Root directory
-root: "/home"
-
 # Raw data directories and files
 fastq_raw: "/home/data/fqs_raw"
 fastq_raw_quality: "/home/data/fqs_raw/fastqc"
@@ -27,14 +24,19 @@ samples:
   - F3D150_S216_L001_R1_001
 
 # Trimmed data directories and files
-fastq_trimmed: "/home/data/fqs_trimmed"
-fastq_trimmed_log: "/home/data/fqs_trimmed/trimmomatic.log"
+fastq_trimmed_log: "/home/data/fqs_trimmed/fastq/trimmomatic.log"
 fastq_trimmed_quality: "/home/data/fqs_trimmed/fastqc"
 fastq_trimmed_quality_log: "/home/data/fqs_trimmed/fastqc/fastqc.log"
+fastq_trimmed: "/home/data/fqs_trimmed/fastq"
+fasta_trimmed: "/home/data/fqs_trimmed/fasta"
+
+# Taxonomic annotation directories
+tax_annotation: "/home/data/output_tables/annotation"
+reference: "/home/data/reference_database/fasta_file.fasta"
+reference_blast: "/home/data/reference_database/fasta_file"
 
 # Auxiliar files
 adapters: "/home/bio-softwares/Trimmomatic/adapters/TruSeq3-SE.fa"
-reference: "/home/data/reference_database"
 
 # Softwares
 trimmomatic: "/home/bio-softwares/Trimmomatic/trimmomatic-0.39.jar"
