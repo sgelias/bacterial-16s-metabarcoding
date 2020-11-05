@@ -6,7 +6,7 @@ This pipeline generate quality reports and perform taxonomic annotation for Bact
 
 ## Structure
 
-This pipeline executes the follows steps:
+This pipeline executes the seven steps:
 
 1. Generate quality reports from raw reads (Fastqc).
 2. Trim raw reads (Trimmomatic).
@@ -15,6 +15,8 @@ This pipeline executes the follows steps:
 5. Convert FASTQ files as the Trimmomatic output to FASTA format (Sed editor).
 6. Attribute taxonomic identities (ncbi-blast+).
 7. Generate OTU table (L-tables) from the previous step results.
+
+![Pipeline structure](https://github.com/sgelias/bacterial-16s-metabarcoding/blob/main/bioinformatic-skills/scripts/dag.svg)
 
 ## Usage
 
