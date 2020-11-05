@@ -35,8 +35,12 @@ tax_annotation: "/home/data/output_tables/annotation"
 reference: "/home/data/reference_database/fasta_file.fasta"
 reference_blast: "/home/data/reference_database/fasta_file"
 
+# OTU table
+otu_table: "/home/data/output_tables/out_table"
+
 # Auxiliar files
 adapters: "/home/bio-softwares/Trimmomatic/adapters/TruSeq3-SE.fa"
 
 # Softwares
 trimmomatic: "/home/bio-softwares/Trimmomatic/trimmomatic-0.39.jar"
+otu_table_builder: "/home/scripts/src/otu_table_builder.py"

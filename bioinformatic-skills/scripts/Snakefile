@@ -2,7 +2,7 @@
 #
 # @sgelias
 #
-# Description: Generate quality reporter and perform taxonomic annotation for 
+# Description: Generate quality reporter and perform taxonomic annotation for
 # bacterial 16S metabarcoding sequencing product. See README.md file for details.
 
 
@@ -17,69 +17,22 @@ FILES = config["samples"]
 # Turn ouput files available for all rules ...
 rule all:
     input:
-        # SERVES:
-        # generate_quality_scores_raw, trim_se
-        expand(
-            "{directory}/{file}.fastq", 
-            directory=config["fastq_raw"], 
-            file=FILES,
-        ),
-        
-        # SERVES:
-        # trim_se, taxonomic_annotation
-        expand(
-            "{directory}/{file}_FILTERED.fastq",
-            directory=config["fastq_trimmed"],
-            file=FILES,
-        ),
-        
-        # SERVES:
-        # generate_quality_scores_raw
         expand(
             "{directory}/{file}_{suffix}",
             directory=config["fastq_raw_quality"],
             file=FILES,
             suffix=SUFFIX,
         ),
-        
-        # SERVES:
-        # generate_quality_scores_trimmed
         expand(
             "{directory}/{file}_FILTERED_{suffix}",
             directory=config["fastq_trimmed_quality"],
             file=FILES,
             suffix=SUFFIX,
         ),
-        
-        # SERVES:
-        # build_reference_database
-        expand(
-            "{output_dir}/{output_prefix}.{blast_database_formats}",
-            output_dir=config['reference_blast'],
-            output_prefix="bacterial_16S",
-            blast_database_formats=["nhr", "nin", "nsq"]
+        "{directory}/{file}".format(
+            directory=config["otu_table"], 
+            file="out_table_blast"
         ),
-        
-        # SERVES:
-        # build_reference_database
-        config['reference'],
-
-        # SERVES:
-        # fastq_to_fasta
-        expand(
-            "{directory}/{file}_FILTERED.fasta",
-            directory=config["fasta_trimmed"],
-            file=FILES,
-        ),
-        
-        # SERVES:
-        # taxonomic_annotation
-        expand(
-            "{directory}/{file}_FILTERED_BAC16S.fasta",
-            directory=config['tax_annotation'],
-            file=FILES,
-        ),
-
 
 
 """
@@ -152,7 +105,10 @@ rule trim_se:
     log:
         config["fastq_trimmed_log"],
     params:
-        adapters=config["adapters"],
+        headcrop=20,
+        slidingwindow="5:20",
+        minlen=180,
+        adapters="{adapters}:2:30:10".format(adapters=config["adapters"]),
         trimmomatic=config["trimmomatic"],
         workdir=config["fastq_trimmed"],
     threads: 2
@@ -175,10 +131,10 @@ rule trim_se:
                     -threads {threads} \
                     {file} \
                     {target_output} \
-                    ILLUMINACLIP:"{params.adapters}:2:30:10" \
-                    HEADCROP:20 \
-                    SLIDINGWINDOW:5:20 \
-                    MINLEN:180 \
+                    ILLUMINACLIP:"{params.adapters}" \
+                    HEADCROP:{params.headcrop} \
+                    SLIDINGWINDOW:{params.slidingwindow} \
+                    MINLEN:{params.minlen} \
                     &>> {log}
                 """
             )
@@ -236,29 +192,39 @@ rule build_reference_database:
     message:
         """--- Building reference database."""
     input:
-        config['reference'],
+        config["reference"],
     output:
         expand(
             "{output_dir}/{output_prefix}.{blast_database_formats}",
-            output_dir=config['reference_blast'],
+            output_dir=config["reference_blast"],
             output_prefix="bacterial_16S",
-            blast_database_formats=["nhr", "nin", "nsq"]
+            blast_database_formats=["nhr", "nin", "nsq"],
         ),
     params:
-        dbtype = "nucl",
-        output_dir=config['reference_blast'],
-        output_prefix = "bacterial_16S",
+        dbtype="nucl",
+        output_dir=config["reference_blast"],
+        output_prefix="bacterial_16S",
     shell:
         """
         mkdir -p {params.output_dir}
         makeblastdb \
-			-in {input} \
-			-dbtype {params.dbtype} \
-			-out {params.output_dir}/{params.output_prefix}
+            -in {input} \
+            -dbtype {params.dbtype} \
+            -out {params.output_dir}/{params.output_prefix}
         """
 
 
-rule fastq_to_fasta:
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+
+Important parameters:
+"""
+
+
+rule convert_fastq_to_fasta:
     message:
         """--- Convert FASTQ to FASTA fromat."""
     input:
@@ -283,7 +249,7 @@ rule fastq_to_fasta:
                     .split("/")[-1] \
                     .startswith(filename)
             ][0]
-            
+
             shell(
                 """
                 sed -n '1~4s/^@/>/p;2~4p' \
@@ -302,24 +268,27 @@ Important parameters:
 """
 
 
-rule taxonomic_annotation:
+rule perform_taxonomic_annotation:
     message:
         """--- Taxonomic annotation using blastn."""
     input:
-        trimmed_files = rules.fastq_to_fasta.output,
-        reference_database = rules.build_reference_database.output,
+        trimmed_files=rules.convert_fastq_to_fasta.output,
+        reference_database=rules.build_reference_database.output,
     output:
         expand(
             "{directory}/{file}_FILTERED_BAC16S.csv",
-            directory=config['tax_annotation'],
+            directory=config["tax_annotation"],
             file=FILES,
         ),
     params:
-        evalue = 10e-5,
-        outfmt = "10",
-        db = rules.build_reference_database.params.output_prefix,
-        db_dir = config['reference_blast'],
-        output_dir=config['tax_annotation'],
+        evalue=1e-5,
+        outfmt="10",
+        max_target_seqs=50,
+        perc_identity=0.95,
+        max_hsps=50,
+        db=rules.build_reference_database.params.output_prefix,
+        db_dir=config["reference_blast"],
+        output_dir=config["tax_annotation"],
     threads: 4
     run:
         for file in input.trimmed_files:
@@ -341,7 +310,47 @@ rule taxonomic_annotation:
                     -evalue {params.evalue} \
                     -outfmt {params.outfmt} \
                     -num_threads {threads} \
+                    -max_target_seqs {params.max_target_seqs} \
+                    -perc_identity {params.perc_identity} \
+                    -max_hsps {params.max_hsps} \
                     -db {params.db_dir}/{params.db} \
                     -out {target_output}
                 """
             )
+
+
+"""
+Step: Trim ends of fastq files.
+Software: Trimmomatic
+Version: 0.39
+Description: This step remove low quality ...
+
+Important parameters:
+"""
+
+
+rule generate_count_table:
+    message:
+        """--- Generating taxon by sample count table."""
+    input:
+        rules.perform_taxonomic_annotation.output,
+    output:
+        "{directory}/{file}".format(
+            directory=config["otu_table"], 
+            file="out_table_blast"
+        ),
+    params:
+        blast_dir=config["tax_annotation"],
+        output_dir=config["otu_table"],
+        reference_database=config["reference"],
+        cut_suffix="",
+        builder=config["otu_table_builder"],
+    shell:
+        """
+        mkdir -p {params.output_dir}
+        python {params.builder} \
+            --blastdir {params.blast_dir} \
+            --outputdir {params.output_dir}/otu_table.tsv \
+            --reference_database \
+            --cut_suffix '_FILTERED_BAC16S'
+        """
