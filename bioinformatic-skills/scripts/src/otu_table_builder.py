@@ -110,7 +110,7 @@ class OtuTableBuilder(object):
             output_dir = "{}.tsv".format(output_dir)
 
         # Finally, save the dataframe.
-        out_df.to_csv(output_dir, sep='\t')
+        out_df.reset_index().rename(columns = { "index": "OTU" }).to_csv(output_dir, sep='\t', index = False)
 
     def __populate_otu_names(
         self, otu_list: List[str], reference_db: str

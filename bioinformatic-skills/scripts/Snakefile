@@ -31,7 +31,7 @@ rule all:
         ),
         "{directory}/{file}".format(
             directory=config["otu_table"], 
-            file="out_table_blast"
+            file="otu_table.tsv"
         ),
 
 
@@ -337,7 +337,7 @@ rule generate_count_table:
     output:
         "{directory}/{file}".format(
             directory=config["otu_table"], 
-            file="out_table_blast"
+            file="otu_table.tsv"
         ),
     params:
         blast_dir=config["tax_annotation"],
@@ -351,6 +351,6 @@ rule generate_count_table:
         python {params.builder} \
             --blastdir {params.blast_dir} \
             --outputdir {params.output_dir}/otu_table.tsv \
-            --reference_database \
-            --cut_suffix '_FILTERED_BAC16S'
+            --reference_database {params.reference_database} \
+            --cut_suffix '_L001_R1_001_FILTERED_BAC16S'
         """

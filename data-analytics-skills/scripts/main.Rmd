@@ -1,0 +1,75 @@
+---
+title: "Analysis of Bacterial metabarcoding sequencing results"
+output:
+  html_document:
+    df_print: paged
+    number_sections: true
+    keep_md: yes
+    theme: cerulean
+    toc: yes
+    css: "style.css"
+params:
+  dataset: dataset
+  exp_design: exp_design
+---
+
+
+```{r set-options, echo=FALSE, cache=FALSE, include=FALSE}
+
+options(width = 1500)
+
+```
+
+
+```{r load-dependencies, message=FALSE, echo=FALSE, warning=FALSE, include=FALSE}
+
+source("./packages.R")
+
+```
+
+# Exploratory data analysis
+
+## OTU table
+
+```{r load-main-dataset, echo=FALSE, rows.print=25}
+
+#(dataset <- read.csv(params$dataset, sep = "\t", row.names = 1))
+(dataset <- read.csv("../../data/output_tables/out_table/otu_table.tsv", sep = "\t"))
+
+```
+
+## Experimental design
+
+```{r load-experimental-design, echo=FALSE, rows.print=20, out.width=30}
+
+#(design <- read.csv(params$exp_design, sep = "\t"))
+(design <- read.csv("../../data/metadata.tsv", sep = "\t"))
+
+```
+
+
+```{r populate-most-abundant-otus, echo=FALSE, warning=FALSE, message=FALSE}
+
+most_abundant_otu = data.frame()
+
+get_most_abundant_otu <- function(dataset) {
+  for (column in 1:dim(dataset)[2]) {
+    print(colnames(dataset)[column])
+    #print(data.frame(dataset[ ,column]))
+  }
+}
+
+get_most_abundant_otu(dataset)
+
+```
+
+
+
+# Get the 50th most abundant bacterial OTUs from each experinemtal time
+
+```{r plot-most-abundant-otu}
+
+
+
+```
+

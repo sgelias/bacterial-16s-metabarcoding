@@ -2,3 +2,5 @@ bio-softwares
 data
 bioinformatic-skills/scripts/.snakemake
 bioinformatic-skills/scripts/.empty
+.Rproj.user
+.Rhistory

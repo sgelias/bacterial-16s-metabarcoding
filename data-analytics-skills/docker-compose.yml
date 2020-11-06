@@ -1,0 +1,9 @@
+version: "3"
+
+services:
+  machine:
+    container_name: "neoproepecta_challenge_data_analysis_skills"
+    build: . 
+    volumes:
+      - './scripts:/home/scripts:delegated'
+      - '../data:/home/data:delegated'

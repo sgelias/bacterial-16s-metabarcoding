@@ -18,6 +18,8 @@ This pipeline executes the seven steps:
 
 ![Pipeline structure](https://github.com/sgelias/bacterial-16s-metabarcoding/blob/main/bioinformatic-skills/scripts/dag.svg)
 
+The above image contains all steps performed on execution of this pipeline. In order to connect to the above 7 steps we 
+
 ## Usage
 
 Using a terminal emulator of your choice type and run:
