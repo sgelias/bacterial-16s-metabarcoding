@@ -19,6 +19,24 @@ get_options <- function() {
       type = "character",
       default = FALSE,
       help = "A TSV file path containning the experimental design to be ploted."
+    ),
+    make_option(
+      c("-f", "--main_factor"), 
+      type = "character",
+      default = FALSE,
+      help = "The label of the main factor used to split groups (only one)."
+    ),
+    make_option(
+      c("-t", "--taxonomy"), 
+      type = "character",
+      default = FALSE,
+      help = "A TSV file path containning the OTU taxonomy."
+    ),
+    make_option(
+      c("--cores"), 
+      type = "integer",
+      default = 1,
+      help = "The number of available cores for this work."
     )
   )
   
@@ -32,15 +50,20 @@ opt = get_options()
 
 # **************************************************************************** #
 # Create the function to efectivelly render the notebook.
-render_notebook <- function(dataset, exp_design) {
+render_notebook <- function(dataset, exp_design, main_factor, taxonomy, cores, is_docker) {
   rmarkdown::render(
     "./main.Rmd", 
     encoding = 'UTF-8', 
     params = list(
       dataset = dataset,
-      exp_design = exp_design
+      exp_design = exp_design,
+      main_factor = main_factor,
+      taxonomy = taxonomy,
+      cores = cores,
+      is_docker = is_docker
     )
   )
 }
 
-render_notebook(opt$otu_table, opt$exp_design)
+render_notebook(
+  opt$otu_table, opt$exp_design, opt$main_factor, opt$taxonomy, opt$cores, TRUE)

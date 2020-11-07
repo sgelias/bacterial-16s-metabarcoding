@@ -47,7 +47,7 @@ class OtuTableBuilder(object):
 
     def build_otu_table(
         self, output_dir: str, reference_database: str = None, 
-        suffix: str = None
+        suffix: str = None, remove_duplicate_taxa: bool = False
     ) -> None:
         """
         Effectively build the OTU by sample table based on CSV files provided 
@@ -79,7 +79,7 @@ class OtuTableBuilder(object):
             for file in self.__blast_results
         ]
 
-        out_df = out_df \
+        self.__out_df = out_df \
             .fillna(0) \
             .rename(columns = { 
                 index: item
@@ -90,19 +90,24 @@ class OtuTableBuilder(object):
         # description are added to the dataframe row names (as the dataframe 
         # indexes).
         if reference_database:
-            out_df.rename(
+            self.__out_df.rename(
                 index = self.__populate_otu_names(
-                    out_df.index, reference_database), 
+                    self.__out_df.index, reference_database), 
                 inplace=True)
 
         # If a suffix argument is provided, it is removed from all column names.
         if suffix:
-            out_df.rename(
+            self.__out_df.rename(
                 columns = {
                     head: re.sub("{}$".format(suffix), "", head)
-                    for head in out_df.columns
+                    for head in self.__out_df.columns
                 }, 
                 inplace=True)
+
+
+        # Remove duplicate scientific names from final dataframe.
+        if remove_duplicate_taxa:
+            self.__remove_duplicate_taxa()
 
         # Include a correct file extension if it do not exists at the original 
         # name provided by the user.
@@ -110,8 +115,34 @@ class OtuTableBuilder(object):
             output_dir = "{}.tsv".format(output_dir)
 
         # Finally, save the dataframe.
-        out_df.reset_index().rename(columns = { "index": "OTU" }).to_csv(output_dir, sep='\t', index = False)
+        self.__out_df.reset_index().rename(columns = { "index": "OTU" }) \
+            .to_csv(output_dir, sep='\t', index = False)
 
+    
+    def __remove_duplicate_taxa(self):
+        """
+        Remove duplicate taxon names. It was necessary because some taxa with 
+        different preffix ID has duplicate names.
+        """
+
+        unique_df = pd.DataFrame()
+
+        for k, v in self.__out_df.iterrows():
+            target = " ".join(k.split(" ")[1:])
+            
+            sub_df = self.__out_df[
+                self.__out_df.index.str.endswith(target)
+            ].sum()
+            
+            unique_df = pd.concat([
+                unique_df, 
+                pd.Series(sub_df).rename(k)
+            ], axis=1)
+        
+        print(self.__out_df)
+        self.__out_df = unique_df.transpose()
+    
+    
     def __populate_otu_names(
         self, otu_list: List[str], reference_db: str
     ) -> Dict[str, str]:
@@ -252,8 +283,17 @@ if __name__ == "__main__":
         "Ex.: --cut_suffix '_FILTERED'",
     )
 
+    optional.add_argument(
+        '--remove_duplicate_taxa', required=False, default=False,
+        help="It True all duplicate scientific names are collapsed into a single name.\n"
+        "Ex.: --remove_duplicate_taxa True",
+    )
+
     args = parser.parse_args()
 
     builder = OtuTableBuilder(args.blastdir)
     builder.build_otu_table(
-        args.outputdir, args.reference_database, args.cut_suffix)
+        args.outputdir, 
+        args.reference_database, 
+        args.cut_suffix, 
+        args.remove_duplicate_taxa)

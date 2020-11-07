@@ -10,13 +10,32 @@ output:
     css: "style.css"
 params:
   dataset: dataset
+  taxonomy: taxonomy
   exp_design: exp_design
+  main_factor: main_factor
+  is_docker: is_docker
+  cores: cores
 ---
 
 
-```{r set-options, echo=FALSE, cache=FALSE, include=FALSE}
+```{r load-initial-variables, message=FALSE, echo=FALSE, warning=FALSE, include=FALSE}
 
-options(width = 1500)
+# Define default params if is not running inside a Docker enviroment
+if (params$is_docker == TRUE) {
+  RAM_path = "/home/scripts/src/RAM.R"
+  dataset_path = params$dataset
+  design_path = params$exp_design
+  main_factor = params$main_factor
+  taxonomy_path = params$taxonomy
+  host_cores = params$cores
+} else {
+  RAM_path = "./src/RAM.R"
+  dataset_path = "../../data/output_tables/otu_table_tax_amostras.tsv"
+  design_path = "../../data/metadata.tsv"
+  main_factor = "time"
+  taxonomy_path = "../../data/output_tables/tax_table_amostras.tsv"
+  host_cores = 6
+}
 
 ```
 
@@ -24,52 +43,573 @@ options(width = 1500)
 ```{r load-dependencies, message=FALSE, echo=FALSE, warning=FALSE, include=FALSE}
 
 source("./packages.R")
+source(RAM_path)
 
 ```
+
+
 
 # Exploratory data analysis
 
-## OTU table
+## Show the OTU table
 
 ```{r load-main-dataset, echo=FALSE, rows.print=25}
 
-#(dataset <- read.csv(params$dataset, sep = "\t", row.names = 1))
-(dataset <- read.csv("../../data/output_tables/out_table/otu_table.tsv", sep = "\t"))
+# Load table from specified path
+dataset <- read.csv(dataset_path, sep = "\t")
 
-```
+# Rename unused part of column names (samples)
+col_names <- colnames(dataset)
 
-## Experimental design
-
-```{r load-experimental-design, echo=FALSE, rows.print=20, out.width=30}
-
-#(design <- read.csv(params$exp_design, sep = "\t"))
-(design <- read.csv("../../data/metadata.tsv", sep = "\t"))
-
-```
-
-
-```{r populate-most-abundant-otus, echo=FALSE, warning=FALSE, message=FALSE}
-
-most_abundant_otu = data.frame()
-
-get_most_abundant_otu <- function(dataset) {
-  for (column in 1:dim(dataset)[2]) {
-    print(colnames(dataset)[column])
-    #print(data.frame(dataset[ ,column]))
+for (v in seq_along(col_names)) {
+  if (col_names[v] != "OTU") {
+    col_names[v] = strsplit(col_names[v], split = "_")[[1]][1]
   }
 }
 
-get_most_abundant_otu(dataset)
+colnames(dataset) = col_names
+
+dataset
 
 ```
 
 
 
-# Get the 50th most abundant bacterial OTUs from each experinemtal time
+## Show the experimental design
 
-```{r plot-most-abundant-otu}
+```{r load-experimental-design, echo=FALSE, rows.print=20, out.width=30}
 
-
+(design <- read.csv(design_path, sep = "\t"))
 
 ```
+
+
+
+## Show the taxonomy table
+
+```{r load-taxonomy, echo=FALSE, rows.print=20, out.width=30}
+
+(taxonomy <- read.csv(taxonomy_path, sep = "\t"))
+
+```
+
+
+
+## List the 50th most abundant bacterial OTUs
+
+```{r create-populate-most-abundant-otus, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Create the function to populate the most abundant bacterial OTUs
+get_most_abundant_otu <- function(dataset, meta) {
+  
+  # Initialize base data.frame
+  most_abundant_otu_df = data.frame(matrix(ncol = 5))
+  colnames(most_abundant_otu_df) = c("OTU", "count", colnames(meta))
+  
+  # Populate the 50th most abundant OTU from each sample
+  for (column in 1:dim(dataset)[2]) {
+    cname = colnames(dataset)[column]
+    
+    if (cname != "OTU") {
+      
+      local_most_abundant_otu_df = cbind(
+        dataset %>%
+          select("OTU", cname) %>%
+          arrange(desc(!!sym(cname))) %>%
+          slice_head(n = 50) %>%
+          rename(count = cname),
+        design %>%
+          filter(group == cname)
+      )
+      
+      most_abundant_otu_df = rbind(most_abundant_otu_df, local_most_abundant_otu_df)
+    }
+  }
+  
+  return(na.omit(most_abundant_otu_df))
+}
+
+```
+
+
+```{r populate-most-abundant-otus, echo=FALSE, warning=FALSE, message=FALSE, rows.print=25}
+
+# Get the most abundant bacterial OTUs
+most_abundant_otu_df <- get_most_abundant_otu(dataset, design)
+
+# Concatenate the OTU and count columns to show it in girafe tooltip
+most_abundant_otu_df$tooltip <- paste0(
+  most_abundant_otu_df$OTU, " | ", most_abundant_otu_df$count
+)
+
+# Print the resulting dataframe ordered by count columns
+(arrange(most_abundant_otu_df, desc(count)))
+
+```
+
+
+
+## Plot the 50th most abundant bacterial OTUs
+
+```{r plot-most-abundant-otu-absolute, fig.height=14, fig.width=14, echo=FALSE}
+
+barplot_grouped_absolute <- most_abundant_otu_df %>% 
+  
+  # Create the graph base
+  ggplot(aes(x = group, y = count, fill = OTU)) +
+  
+  # Set the plot theme
+  theme_classic() +
+  
+  # Replace the group legend
+  theme(legend.position = "bottom", legend.box = "vertical") +
+  
+  # Add reference lines
+  geom_hline(yintercept = 5000, size = 0.5, color = "grey70") +
+  geom_hline(yintercept = 10000, size = 0.5, color = "grey70") +
+  
+  # Convert the graph to a interactive mode
+  geom_bar_interactive(
+    position = "stack",
+    stat = "identity", 
+    colour = "white",
+    size = 0.1,
+    aes(tooltip = tooltip)
+  ) +
+  
+  # Convert the colour gradient from continuous to discrete
+  scale_fill_viridis(discrete = T) +
+  
+  # Wrap the graph from main factor
+  facet_wrap(as.formula(paste("~", main_factor)), scales = "free") +
+  
+  # Set title and legends
+  ggtitle("The 50th most abundant bacterial OTU from each sample.") +
+  labs(
+    y = "Absolute number or reads", 
+    x = "Sample"
+  ) +
+  
+  # Rotate right
+  coord_flip()
+
+barplot_grouped_absolute_girafe <- girafe(
+  ggobj = barplot_grouped_absolute,
+  width_svg = 16,
+  height_svg = 14
+)
+
+barplot_grouped_absolute_girafe
+
+```
+
+
+
+## Plot the Principal Coordinates Analysis (PCoA)
+
+```{r refatorate-reference-tables, echo=FALSE, message=FALSE, warning=FALSE, rows.print=30}
+
+# Merge the taxonomic ranks inside the OTU table
+populate_taxonomy_from_reference <- function(taxonomy_table, dataset) {
+  for (row in 1:dim(dataset)[1]) {
+    current_row = dataset[row, ]
+    current_taxonomy = taxonomy_table[taxonomy_table$X == current_row$OTU, ]
+    dataset[row,"taxonomy"] = paste(
+      paste0("k__", current_taxonomy$Domain),
+      paste0("p__", current_taxonomy$Phylum),
+      paste0("c__", current_taxonomy$Class),
+      paste0("o__", current_taxonomy$Order),
+      paste0("f__", current_taxonomy$Family),
+      paste0("g__", current_taxonomy$Genus),
+      sep = "; "
+    )
+  }
+  return(dataset)
+}
+
+# Refatorate experinemtal design table
+ordination_design <- design
+rownames(ordination_design) <- design$group
+ordination_design <- ordination_design[ ,-1]
+ordination_design[main_factor] <- factor(ordination_design[[main_factor]])
+
+# Refatorate OTU table
+ordination_dataset <- populate_taxonomy_from_reference(taxonomy, dataset)
+rownames(ordination_dataset) <- dataset$OTU
+ordination_dataset <- ordination_dataset[ ,-1]
+ordination_dataset <- ordination_dataset[ ,c(rownames(ordination_design), "taxonomy")]
+
+```
+
+
+```{r print-pcoa, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.dim=0.2}
+
+# Generate the base plot
+pcoa_plot <- custom_pcoa_plot(
+  ordination_dataset, 
+  meta = ordination_design, 
+  rank = "o",
+  factors = c(main_factor = main_factor)
+)
+
+pcoa_plot = pcoa_plot + 
+  
+  # Set the classic theme
+  theme_classic() +
+  
+  # Remove the group legend
+  theme(legend.position = "none") +
+  
+  # Add reference lines
+  geom_hline(yintercept = 0, size = 0.5, color = "grey70") +
+  geom_vline(xintercept = 0, size = 0.5, color = "grey70") +
+  
+  # Add a interactive layer
+  geom_point_interactive(
+    aes(
+      tooltip = rownames(ordination_design), 
+      color = paste0(main_factor)
+    ), 
+    size = 7
+  ) +
+  
+  # Set title and legends
+  ggtitle("Principal Coordinates Analysis (PCoA).") +
+  
+  # Convert the colour gradient from continuous to discrete
+  scale_fill_viridis(discrete = T)
+
+girafe(
+  ggobj = pcoa_plot,
+  width_svg = 8,
+  height_svg = 8
+)
+
+```
+
+
+
+# Perform comparative data analysis
+
+## Generate basic ecological descriptors like Hill's numbers and Rarefy according it
+
+```{r generate-rarefaction-results, message=FALSE, echo=FALSE, warning=FALSE, include=FALSE}
+
+# Make cluster
+cl <- parallel::makeCluster(host_cores)
+doParallel::registerDoParallel(cl)
+
+# Build the function to rarefy to each sample
+generate_multiple_rarefaction <- function(abund_table) {
+  
+  rarefy = foreach(n = 1:dim(abund_table)[2], .packages = "iNEXT") %dopar% {
+    iNEXT(
+      abund_table[[n]][abund_table[[n]] != 0],
+      q = 0,#c(0, 1, 2),
+      datatype = "abundance",
+      endpoint = length(abund_table[[n]][abund_table[[n]] != 0]),
+      se = TRUE,
+      conf = 0.95,
+      nboot = 50
+    )
+  }
+  
+  names(rarefy) = colnames(abund_table)
+  
+  return(rarefy)
+}
+
+multi_q_rare <- generate_multiple_rarefaction(
+  ordination_dataset[ ,colnames(ordination_dataset) != "taxonomy"])
+
+# Stop cluster
+parallel::stopCluster(cl)
+
+```
+
+
+
+### List diversity estimates for each samples
+
+```{r populate-rarefaction-results, echo=FALSE, message=FALSE, warning=FALSE, rows.print=25}
+
+# Build function to compile basic rarefaction results
+populate_rarefaction_results <- function(rarefaction_list) {
+  rarefy_results = data.frame(matrix(ncol = 7))
+  colnames(rarefy_results) = c(
+    "Sample", "Diversity ", 
+    colnames(rarefaction_list[[1]]$AsyEst)
+  )
+  
+  for (sample in seq_along(multi_q_rare)) {
+    sample_estimates = data.frame(rarefaction_list[[sample]]$AsyEst)
+    sample_name = rep(names(multi_q_rare[sample]), dim(sample_estimates)[1])
+    sample_estimates = cbind(
+      sample_name, 
+      rownames(sample_estimates), 
+      sample_estimates
+    )
+    
+    colnames(sample_estimates) = colnames(rarefy_results)
+    rarefy_results = rbind(rarefy_results, sample_estimates)
+  }
+  
+  rarefy_results = na.omit(rarefy_results)
+  rownames(rarefy_results) = 1:dim(rarefy_results)[1]
+  
+  return(rarefy_results)
+}
+
+populate_rarefaction_results(multi_q_rare)
+
+```
+
+
+
+### Plot rarefaction curves
+
+```{r create-plotter-rarefaction-results, fig.height=6, fig.width=12, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Create function to compile the rarefaction results graph
+populate_rarefaction_graphs <- function(title, rarefaction_list) {
+  
+  # Initializa the data.frame to store the points position
+  points_df = data.frame(matrix(ncol = 3))
+  colnames(points_df) = c("sample","x", "y")
+  
+  # Build base graph
+  rare_curve <- ggplot() +
+    
+    # Set theme
+    theme_bw() +
+    
+    # Labels
+    labs(x = "Number of Individuals (n)", y = "Species Diversity (qD)") +
+    
+    # Remove legends
+    theme(legend.position = "none")
+  
+  for (item in seq_along(rarefaction_list)) {
+    
+    # Get the current name of the sample to be populated
+    current = names(rarefaction_list[item])
+    
+    # Populate the points position
+    points_df[item,1:3] = c(
+      current, 
+      filter(rarefaction_list[[current]]$iNextEst, method == "interpolated") %>% 
+        select(m) %>% max(), 
+      filter(rarefaction_list[[current]]$iNextEst, method == "interpolated") %>% 
+        select(qD) %>% max()
+    )
+    
+    # Populate the lines layer
+    rare_curve = rare_curve +
+      
+      # Set graph main geometry
+      geom_line(
+        data = rarefaction_list[[current]]$iNextEst,
+        aes(x = m, y = qD, linetype = factor(method)),
+        colour = "grey40",
+      )
+      
+      # Set line types
+      scale_linetype_manual(values = c("solid"))
+  }
+  
+  points_df$x = as.numeric(points_df$x)
+  points_df$y = as.numeric(points_df$y)
+  
+  # Create the interactive label
+  rare_curve = rare_curve +
+    geom_point_interactive(
+      data = points_df,
+      aes(x = x, y = y, tooltip = sample),
+      colour = "black",
+      size = 5
+    ) +
+  
+    # Add the title label
+    ggtitle(title)
+  
+  rare_curve
+}
+
+```
+
+
+```{r plot-rarefaction-curves, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Print rarefaction according the main_factor
+for (fact in seq_along(unique(ordination_design[[main_factor]]))) {
+  
+  # Get a single factor of main_factor
+  fact_value <- unique(ordination_design[[main_factor]])
+  
+  # Build message
+  message <- paste0(
+    "Sample effectiveness of microbiome sampling at the ", 
+    fact_value[fact], " group"
+  )
+  
+  # Sample the OTU matrix according the factor set
+  factor_set <- multi_q_rare[names(multi_q_rare) %in% rownames(
+    filter(ordination_design[main_factor], get(main_factor) == fact_value[fact])
+  )]
+  
+  # Build the graph
+  rare <- populate_rarefaction_graphs(message, factor_set)
+  
+  # Print the static rarefaction graph
+  print(rare)
+  
+  # Plot dynamic graph
+  print(girafe(ggobj = rare))
+}
+
+```
+
+
+
+## Identify differential abundant bacterial OTUs with edger
+
+```{r build-base-edger-object, echo=FALSE, rows.print=20}
+
+# Create the edger object
+dge_dataset <- DGEList(
+  counts = ordination_dataset[ ,colnames(ordination_dataset) != "taxonomy"], 
+  group = ordination_design[ ,main_factor]
+)
+print("Original matrix size:")
+print(dim(dge_dataset))
+
+# Filter the OTU count table to include only specimens with at last three 
+# occurrences
+keep <- rowSums(cpm(dge_dataset) > 100) >= 2
+dge_dataset <- dge_dataset[keep, ]
+print("Filtered matrix size:")
+dim(dge_dataset)
+
+# Reset the cols count variable
+dge_dataset$samples$lib.size <- colSums(dge_dataset$counts)
+
+# Compute the normalization factor using trimmed mean of M-values (TMM) between 
+# each pair of samples
+dge_dataset <- calcNormFactors(dge_dataset)
+dge_dataset
+
+```
+
+
+
+## Estimate data dispersion
+
+```{r}
+
+dge_dispersion <- estimateCommonDisp(dge_dataset, verbose = T)
+dge_tag_dispersion <- estimateTagwiseDisp(dge_dispersion)
+
+```
+
+
+
+# Plot the Biological Sequence Dispersion
+
+```{r}
+
+plotBCV(dge_tag_dispersion)
+
+```
+
+
+## Model the tagwise dispersion
+
+```{r}
+
+design.mat <- model.matrix(~ 0 + dge_dataset$samples$group)
+colnames(design.mat) <- levels(dge_dataset$samples$group)
+d2 <- estimateGLMCommonDisp(dge_dataset, design.mat)
+d2 <- estimateGLMTrendedDisp(d2, design.mat, method = "auto")
+
+# You can change method to "auto", "bin.spline", "power", "spline", "bin.loess".
+# The default is "auto" which chooses "bin.spline" when > 200 tags and "power" otherwise.
+d2 <- estimateGLMTagwiseDisp(d2, design.mat)
+
+plotBCV(d2)
+
+```
+
+
+
+## Get estimates of the Differential Expression
+
+```{r rows.print=25}
+
+# Compute the tagwise tests using the exact negative binomial test. By default, 
+# Benjamini and Hochberg's algorithm is used to control the false discovery 
+# rate (FDR).
+et12 <- exactTest(dge_tag_dispersion, pair = c(1,2))
+data.frame(topTags(et12, n = dim(dge_dataset)[1]))
+
+```
+
+
+
+### Get the total number of differentially expressed genes at FDR < 0:05
+
+```{r}
+
+de1 <- decideTestsDGE(et12, adjust.method = "BH", p.value = 0.05)
+summary(de1)
+
+```
+
+
+
+## Plot the the tagwise log-fold-changes against log-cpm
+
+```{r}
+
+vulcano_data <- cbind(de1@.Data, et12$table)
+colnames(vulcano_data)[1] = "Late_Early"
+vulcano_data$Late_Early <- factor(vulcano_data$Late_Early)
+vulcano_data$Tooltip <- paste0(
+  rownames(vulcano_data), "\n", 
+  paste0("logFC: ", round(vulcano_data$logFC, 2)), " | ", 
+  paste0("logCPM: ", round(vulcano_data$logCPM, 2))
+)
+
+volcano <- ggplot(vulcano_data) +
+  
+  # Set the plot theme
+  theme_classic() +
+  
+  # Replace the group legend
+  theme(legend.position = "bottom", legend.box = "vertical") +
+  
+  # Add reference lines
+  geom_hline(yintercept = 2, size = 0.5, color = "grey70") +
+  geom_hline(yintercept = -2, size = 0.5, color = "grey70") +
+  
+  geom_point_interactive(
+    aes(
+      x = logCPM, 
+      y = logFC, 
+      color = Late_Early, 
+      tooltip = Tooltip
+    ),
+    size = 3
+  ) + 
+  
+  # Convert the colour gradient from continuous to discrete
+  scale_fill_viridis(discrete = T)
+
+girafe(
+  ggobj = volcano,
+  width_svg = 8,
+  height_svg = 8
+)
+
+```
+
 
