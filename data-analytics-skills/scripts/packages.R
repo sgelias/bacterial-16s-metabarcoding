@@ -1,6 +1,7 @@
 
 # Install dependencies via CRAN
 if (!"vegan" %in% installed.packages()) install.packages("vegan", dependencies = TRUE)
+if (!"DT" %in% installed.packages()) install.packages("DT")
 if (!"doParallel" %in% installed.packages()) install.packages("doParallel")
 if (!"egg" %in% installed.packages()) install.packages("egg")
 if (!"foreach" %in% installed.packages()) install.packages("foreach")
@@ -20,10 +21,10 @@ if (!"viridis" %in% installed.packages()) install.packages("viridis")
 
 # Install dependencies via Biocondictor (uncomment if needed)
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-if (!"baySeq" %in% installed.packages()) install.packages("baySeq")
 if (!"edgeR" %in% installed.packages()) install.packages("edgeR")
 
 # Load packages
+library(DT)
 library(doParallel)
 library(egg)
 library(edgeR)

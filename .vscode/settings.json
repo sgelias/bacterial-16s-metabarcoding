@@ -12,5 +12,8 @@
     },
     "cSpell.ignoreWords": [
         "obligately"
-    ]
+    ],
+    "files.associations": {
+        "*.rmd": "markdown"
+    }
 }

@@ -49,8 +49,10 @@ opt = get_options()
 
 
 # **************************************************************************** #
-# Create the function to efectivelly render the notebook.
-render_notebook <- function(dataset, exp_design, main_factor, taxonomy, cores, is_docker) {
+# Create the function to effectively render the notebook.
+render_notebook <- function(
+  dataset, exp_design, main_factor, taxonomy, cores, is_docker
+) {
   rmarkdown::render(
     "./main.Rmd", 
     encoding = 'UTF-8', 
