@@ -2,19 +2,28 @@
 #
 # @sgelias
 #
-# Description: Generate quality reporter and perform taxonomic annotation for
-# bacterial 16S metabarcoding sequencing product. See README.md file for details.
+# Description: Perform quality checks, generate quality reporter, and perform 
+# taxonomic annotation for bacterial 16S metabarcoding sequencing product. See 
+# README.md file for details.
 
 
 # Import the configuration file.
 configfile: "config.yaml"
 
 
+# Set the auxiliary variables to be used along the pipeline.
+## The suffix indicate the file format as output of the fastqc quality reporter.
 SUFFIX = ["fastqc.zip", "fastqc.html"]
+
+## Specify the constant of the config file that contain all the sample names.
 FILES = config["samples"]
 
 
-# Turn ouput files available for all rules ...
+"""
+Step: Connect all pipeline outputs.
+"""
+
+
 rule all:
     input:
         expand(
@@ -36,12 +45,11 @@ rule all:
 
 
 """
-Step: Trim ends of fastq files.
-Software: Trimmomatic
-Version: 0.39
-Description: This step remove low quality ...
-
-Important parameters:
+Step: Generate quality score reports from raw sequences.
+Software: FastQC
+Version: 0.11.5
+Description: Read a set of sequence files and generate individual quality 
+reports.
 """
 
 
@@ -78,12 +86,22 @@ rule generate_quality_scores_raw:
 
 
 """
-Step: Trim ends of fastq files.
+Step: Trim end's of fastq files.
 Software: Trimmomatic
 Version: 0.39
-Description: This step remove low quality ...
+Description: Remove low quality end's of raw sequences given some filters.
 
 Important parameters:
+    ILLUMINACLIP: Specify the adapters file. A default Trimmomatic includes a 
+    set of fasta files containing default adapters. To change the set of 
+    adapters for each one, simple specify the `adapters` at the config.yaml 
+    file.
+    HEADCROP: Remove bases from the beginning of reads that not reaching a 
+    minimmun quality score.
+    SLIDINGWINDOW: Perform a sliding window trimming, removing bases if the 
+    average quality within do not reaches a threshold.
+    MINLEN: Remove sequences that falls to reach a mimimun length after apply 
+    all quality filters.
 """
 
 
@@ -141,12 +159,11 @@ rule trim_se:
 
 
 """
-Step: Trim ends of fastq files.
-Software: Trimmomatic
-Version: 0.39
-Description: This step remove low quality ...
-
-Important parameters:
+Step: Generate quality score reports from trimmed sequences.
+Software: FastQC
+Version: 0.11.5
+Description: Read a set of sequence files and generate individual quality 
+reports.
 """
 
 
@@ -179,12 +196,10 @@ rule generate_quality_scores_trimmed:
 
 
 """
-Step: Trim ends of fastq files.
-Software: Trimmomatic
-Version: 0.39
-Description: This step remove low quality ...
-
-Important parameters:
+Step: Build a reference database given a entry fasta.
+Software: makeblastdb (from BLASTn)
+Version: 2.6.0
+Description: Build a reference database use in blastn step (next step).
 """
 
 
@@ -215,12 +230,10 @@ rule build_reference_database:
 
 
 """
-Step: Trim ends of fastq files.
-Software: Trimmomatic
-Version: 0.39
-Description: This step remove low quality ...
-
-Important parameters:
+Step: Convert trimmed fastq files to simple fasta files.
+Software: sed
+Version: 4.4
+Description: Convert trimmed fastq files to simple fasta files.
 """
 
 
@@ -259,12 +272,12 @@ rule convert_fastq_to_fasta:
 
 
 """
-Step: Trim ends of fastq files.
-Software: Trimmomatic
-Version: 0.39
-Description: This step remove low quality ...
-
-Important parameters:
+Step: Search sequences match from a reference database (subject sequences).
+Software: blastn (from BLASTn)
+Version: 2.6.0
+Description: Perform query-subject matches to compare with a reference database
+build at the previous step (the reference database build using the makeblastdb)
+method.
 """
 
 
@@ -320,12 +333,20 @@ rule perform_taxonomic_annotation:
 
 
 """
-Step: Trim ends of fastq files.
-Software: Trimmomatic
-Version: 0.39
-Description: This step remove low quality ...
+Step: Generate OTU by sample count table.
+Software: In house Python script.
+Version: ---
+Description: Convert BLASTn tabular results to a count by sample TSV table.
 
 Important parameters:
+    blastdir: The directory containing all TSV blast results as the entry for 
+    the algorithm.
+    outputdir: The directory so save the output file.
+    reference_database: The FASTA file used as reference for the sequences 
+    annotation using BLASTn. Used to retriave the full subject description.
+    cut_suffix: A string to be removed from each sample name. It is a optional 
+    parameter, but is usefull in cases in with the names of sequence files 
+    including aditional names included during the pipeline previous steps.
 """
 
 

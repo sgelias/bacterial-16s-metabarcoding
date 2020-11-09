@@ -68,7 +68,15 @@ for (v in seq_along(col_names)) {
 colnames(dataset) = col_names
 
 datatable(
-  dataset, class = 'cell-border stripe', options = list(scrollX = '100%'))
+  dataset, 
+  class = 'cell-border stripe', 
+  extensions = 'Buttons', , 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    dom = 'Bfrtip', 
+    scrollX = '100%'
+  )
+)
 
 ```
 
@@ -79,7 +87,15 @@ datatable(
 ```{r load-taxonomy, echo=FALSE, rows.print=20, out.width=30}
 
 taxonomy <- read.csv(taxonomy_path, sep = "\t")
-datatable(taxonomy, class = 'cell-border stripe')
+datatable(
+  taxonomy, 
+  class = 'cell-border stripe', 
+  extensions = 'Buttons', 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    dom = 'Bfrtip'
+  )
+)
 
 ```
 
@@ -90,7 +106,15 @@ datatable(taxonomy, class = 'cell-border stripe')
 ```{r load-experimental-design, echo=FALSE, rows.print=20, out.width=30}
 
 design <- read.csv(design_path, sep = "\t")
-datatable(design, class = 'cell-border stripe')
+datatable(
+  design, 
+  class = 'cell-border stripe', 
+  extensions = 'Buttons', 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'), 
+    dom = 'Bfrtip'
+  )
+)
 
 ```
 
@@ -156,7 +180,14 @@ most_abundant_otu_df$tooltip <- paste0(
 
 # Print the resulting data.frame ordered by count columns.
 datatable(
-  arrange(most_abundant_otu_df, desc(count)), class = 'cell-border stripe')
+  arrange(most_abundant_otu_df, desc(count)), 
+  class = 'cell-border stripe', 
+  extensions = 'Buttons', 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'), 
+    dom = 'Bfrtip'
+  )
+)
 
 ```
 
@@ -361,7 +392,14 @@ populate_rarefaction_results <- function(rarefaction_list) {
 ```{r populate-rarefaction-results, echo=FALSE, message=FALSE, warning=FALSE, rows.print=25}
 
 datatable(
-  populate_rarefaction_results(multi_q_rare), class = 'cell-border stripe')
+  populate_rarefaction_results(multi_q_rare), 
+  class = 'cell-border stripe',
+  extensions = 'Buttons', 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    dom = 'Bfrtip'
+  )
+)
 
 ```
 
@@ -515,7 +553,15 @@ for (fact in seq_along(unique(ordination_design[[main_factor]]))) {
   cat(knit_child(
     text = c(
       knitPrefix,
-      "datatable(rare$estimates, class = 'cell-border stripe')",
+      "datatable(
+        rare$estimates, 
+        class = 'cell-border stripe',
+        extensions = 'Buttons', 
+        options = list(
+          buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+          dom = 'Bfrtip'
+        )
+      )",
       knitSuffix
     ), 
     envir = environment(), 
@@ -683,7 +729,13 @@ exact_test <- exactTest(dge_tag_dispersion, pair = c(1,2))
 
 datatable(
   data.frame(topTags(exact_test, n = dim(dge_dataset)[1])), 
-  class = 'cell-border stripe')
+  class = 'cell-border stripe',
+  extensions = 'Buttons', 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    dom = 'Bfrtip'
+  )
+)
 
 ```
 

@@ -1,24 +1,24 @@
-# Bacterial 16S metabarcoding pipeline
+# Bacterial 16S metabarcoding pipeline - Raw sequences processing
 
 ## Brief description
 
-This pipeline generate quality reports and perform taxonomic annotation for Bacterial 16S metabarcoding sequencing product.
+This pipeline generate quality reports, perform taxonomic annotation and generate the OTU-by-sample file from Bacterial 16S metabarcoding sequencing product.
 
 ## Structure
 
 This pipeline executes the seven steps:
 
-1. Generate quality reports from raw reads (Fastqc).
-2. Trim raw reads (Trimmomatic).
-3. Generate quality reports from trimmed reads (Fastqc).
-4. Build a reference database using a Bacterial 16S dataset (ncbi-blast+).
-5. Convert FASTQ files as the Trimmomatic output to FASTA format (Sed editor).
-6. Attribute taxonomic identities (ncbi-blast+).
-7. Generate OTU table (L-tables) from the previous step results.
+1. Generate quality reports (in HTML format) from raw reads (FastQC).
+2. Trim ends of raw sequence files given a set of filters (Trimmomatic).
+3. Generate quality reports (in HTML format) from trimmed reads (FastQC) generated at the step 2.
+4. Build a reference database using a pre-build Bacterial 16S dataset (makeblastdb from ncbi-blast+).
+5. Convert FASTQ files from Trimmomatic output to FASTA format (Sed editor).
+6. Attribute taxonomic identities (blastn from ncbi-blast+).
+7. Generate OTU table (L-tables) as input the results of the BLASTn (in house python script).
 
 ![Pipeline structure](https://github.com/sgelias/bacterial-16s-metabarcoding/blob/main/bioinformatic-skills/scripts/dag.svg)
 
-The above image contains all steps performed on execution of this pipeline. In order to connect to the above 7 steps we 
+The above image contains all steps performed on execution of this pipeline. Details of each pipeline step are included at the header of each snakefile `rule`, including a brief description of the step, the software and version that execute each step, and important parameters to be changed if needed.
 
 ## Usage
 
@@ -28,12 +28,16 @@ Using a terminal emulator of your choice type and run:
 snakemake --cores 4
 ```
 
-**NOTE**: Replace the `4` by the number of cores available in your host machine to execute the pipeline.
+**NOTE**: Replace the `4` by the number of cores available in your host machine to execute the pipeline. If some step of the pipeline was also concluded before running the `snakemake` such steps will be ignored. To force revisiting all steps include the -F flag in the command:
+
+```bash
+snakemake --cores 4 -F
+```
 
 Additional parameters can be used if needed. To see more options simple run `snakemake --help`. File and directory paths should obligately exist in config.yaml file. All paths are relative to docker image filesystem, thus before run the `snakemake` command you should activate the docker container typing:
 
 ```bash
-docker-compose run --rm --workdir="/home/" machine
+docker-compose run --rm --workdir="/home/scripts/" machine
 ```
 
 The above command should be run in the same directory of `docker-compose.yml` file (the same directory in which this file resides). The `machine` parameter is the name of the main service specified in the docker-compose file, hence you can change it to a name of your choice.
@@ -46,53 +50,30 @@ Mapped volumes specified in `docker-compose.yml` file including `data` and `bio-
 
 Samples identification are hard-coded in `samples` item of the `config.yaml` file. Alternatively you can specify only the container directory in `samples` item and dynamically filter `*.fastq` files to turn the process energetically less expensive and this pipeline more generalist.
 
-## About the pipeline
+## The pipeline output
 
-Details of each step of the current pipeline are described here.
+The structure of the pipeline output are shown:
 
-### Step 1 - Generate quality reports from raw reads (Fastqc)
+```bash
+.
+├── fqs_raw
+│   └── fastqc
+├── fqs_trimmed
+│   ├── fasta
+│   ├── fastq
+│   └── fastqc
+├── reference_database
+│   └── fasta_file
+└── output_tables
+    ├── annotation
+    └── out_table
 
-Desctiption...
+```
 
-### Step 2 - Trim raw reads (Trimmomatic)
+The `fqs_raw` directory contain all original FASTQ files. After run the first step of the pipeline a dub-directory named `fastqc` is created and outputs of the FastQC are placed here. Each input file has a HTML and a ZIP associated file. Both receives as prefix input filename and include a *_fastqc* suffix with the respective .html and .zip extensions. The HTML should be viewed using the browser of your choice, and the ZIP file include all sources of the HTML file (do not change the content, it can lead to disruption of the HTML file).
 
-Desctiption...
+The `fqs_trimmed` directory is created after Trimmomatic was finished. It include the `fastq` and `fastqc` sub-directories to store trimmed FASTq files and FastQC quality reports, respectively. The `fastqc` after the third step running (see **Structure** topic). The `fasta` directory contain FASTA files, created after the 5th step running to convert the trimmed FASTq files to simple FASTA format.
 
-### Step 3 - Generate quality reports from trimmed reads (Fastqc).
+The `reference_database` contain a FASTA file used to build the reference database used as *Subject* for BLASTn. After running the 4th step (build the reference database using `makeblastdb`) a subdirectory containing the same name of the reference FASTA file is created, and contain the binary reference files (`.nhr`, `.nin`, and `.nsq` formats).
 
-Description...
-
-### Step 4 - Build a reference database using a Bacterial 16S dataset (ncbi-blast+).
-
-Description...
-
-### Step 5 - Convert FASTQ files as the Trimmomatic output to FASTA format (Sed editor).
-
-Description...
-
-### Step 6 - Attribute taxonomic identities (ncbi-blast+).
-
-Description...
-
-Describe parameters of blastn `outfmt (10 qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore score)`
-
-* **qaccver** - Query accesion.version
-* **saccver** - Subject accession.version
-* **pident** - Percentage of identical matches
-* **length** - Alignment length
-* **mismatch** - Number of mismatches
-* **gapopen** - Number of gap openings
-* **qstart** - Start of alignment in query
-* **qend** - End of alignment in query
-* **sstart** - Start of alignment in subject
-* **send** - End of alignment in subject
-* **evalue** - Expect value
-* **bitscore** - Bit score
-
-### Step 7 - Generate OTU table (L-table) from taxonomically annotated sequences.
-
-Description...
-
-### Next steps
-
-Run community analysis ...
+Finally, the `output_tables` contain the `annotation` directory that stores the tabular (TSV) results of the BLASTn analysis, and the `out_table` directory, containing the OTU-by-sample table (TSV), used as input in further community analysis.

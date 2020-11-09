@@ -22,7 +22,7 @@ if (!"viridis" %in% installed.packages()) install.packages("viridis")
 
 # Install dependencies via Biocondictor (uncomment if needed)
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-if (!"edgeR" %in% installed.packages()) install.packages("edgeR")
+if (!requireNamespace("edgeR", quietly = TRUE)) BiocManager::install("edgeR")
 
 # Load packages
 library(DT)
