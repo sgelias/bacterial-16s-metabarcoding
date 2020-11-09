@@ -122,6 +122,53 @@ datatable(
 
 # Descriptive statistics
 
+## Total number of reads by sample
+
+```{r reads-count-column, echo=FALSE, warning=FALSE, message=FALSE, rows.print=20}
+
+reads_count <- apply(dataset[ ,colnames(dataset) != "OTU"], 2, sum)
+reads_count <- data.frame(reads_count)
+colnames(reads_count) <- "Reads Count"
+
+datatable(
+  reads_count, 
+  class = 'cell-border stripe', 
+  extensions = 'Buttons', , 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    dom = 'Bfrtip',
+    pageLength = 20
+  )
+)
+
+```
+
+
+
+## Total number of reads by taxon
+
+```{r reads-count-rows, echo=FALSE, warning=FALSE, message=FALSE, rows.print=20}
+
+reads_count <- dataset
+rownames(reads_count) <- reads_count$OTU
+reads_count <- apply(reads_count[ ,colnames(reads_count) != "OTU"], 1, sum)
+reads_count <- data.frame(reads_count)
+colnames(reads_count) <- "Reads Count"
+
+datatable(
+  reads_count, 
+  class = 'cell-border stripe', 
+  extensions = 'Buttons', , 
+  options = list(
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    dom = 'Bfrtip'
+  )
+)
+
+```
+
+
+
 ## List of the 50th most abundant bacterial OTU's
 
 ```{r create-populate-most-abundant-otus, echo=FALSE, warning=FALSE, message=FALSE}
@@ -383,6 +430,12 @@ populate_rarefaction_results <- function(rarefaction_list) {
   rarefy_results = na.omit(rarefy_results)
   rownames(rarefy_results) = 1:dim(rarefy_results)[1]
   
+  # Include a sample percentage estimate
+  rarefy_results$Percent_of_samples = round(
+    (rarefy_results$Observed * 100) / rarefy_results$Estimator, 2)
+  
+  names(rarefy_results)[length(names(rarefy_results))] <- "% of Estimator" 
+  
   return(rarefy_results)
 }
 
@@ -405,7 +458,7 @@ datatable(
 
 
 
-### List and ploting diversity estimates by group
+### List and plotting diversity estimates by group
 
 ```{r function-plotter-rarefaction-results, fig.height=6, fig.width=12, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
 
@@ -595,7 +648,7 @@ for (fact in seq_along(unique(ordination_design[[main_factor]]))) {
 pcoa_plot <- custom_pcoa_plot(
   ordination_dataset, 
   meta = ordination_design, 
-  rank = "f",
+  rank = "o",
   factors = c(main_factor = main_factor)
 )
 
