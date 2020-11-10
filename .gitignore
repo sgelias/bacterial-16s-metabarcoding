@@ -1,5 +1,5 @@
 bio-softwares
-data
+#data
 bioinformatic-skills/scripts/.snakemake
 bioinformatic-skills/scripts/.empty
 .Rproj.user
