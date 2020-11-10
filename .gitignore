@@ -1,7 +1,5 @@
 bio-softwares
-data/fqs_raw/fastqc
-data/fqs_trimmed
-data/output_tables/annotations
+#data
 bioinformatic-skills/scripts/.snakemake
 bioinformatic-skills/scripts/.empty
 .Rproj.user
