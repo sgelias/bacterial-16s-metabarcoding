@@ -33,6 +33,8 @@ Os arquivos contidos nesse repositório possuem os resultados do desafio Neopros
             └── RAM
 ```
 
+IMPORTANTE: alguns arquivos/diretórios foram omitidos do repositório github por possuírem tamanho elevado. Antes de iniciar as análises baixe o arquivo ZIP contendo os softwares necessários (`bio-softwares.zip`) para a realização desse tutorial assim como os arquivos de entrada e saída da pipeline de processamento das sequencias brutas através desse [link](https://drive.google.com/drive/folders/13av26PoO0RYlh9O9hpZyCTY4npC2TNv1?usp=sharing). Ambos os arquivos devem ser descompactados no mesmo diretório em que os diretórios acima citados estão incluídos.
+
 Ambos os diretórios `bioinformatic-skills` e `data-analytics-skills` contém arquivos README contendo maiores detalhes sobre os passos executados em cada etapa do processo de análise de dados, assim, nessa página não serão fornecidos detalhes sobre os scripts.
 
 IMPORTANTE: os arquivos contidos no diretório `data` são compartilhados entre as duas etapas da análise dos dados de sequenciamento. Portanto, com exceção dos arquivos brutos de entrada, não altere manualmente os arquivos ou sobrescreva-os.
